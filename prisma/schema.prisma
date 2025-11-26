@@ -1,0 +1,111 @@
+// prisma/schema.prisma
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [pgvector(map: "vector")]
+}
+
+model FundingCall {
+  id              String   @id @default(cuid())
+
+  // Grundlæggende info
+  title           String
+  titleEn         String?
+  description     String   @db.Text
+  descriptionEn   String?  @db.Text
+
+  // Kategorisering
+  source          Source
+  type            CallType
+  sectors         String[]  // ["biotech", "medtech", "pharma", "welfare_tech"]
+  targetAudience  String[]  // ["startup", "sme", "large_enterprise", "research"]
+
+  // Økonomi
+  minAmount       Int?      // Minimum beløb i DKK
+  maxAmount       Int?      // Maximum beløb i DKK
+  coFinancing     Int?      // Medfinansiering i procent
+  deMinimis       Boolean   @default(false)
+
+  // Datoer
+  openDate        DateTime?
+  deadline        DateTime
+
+  // Links og referencer
+  url             String
+  applicationUrl  String?
+  contactEmail    String?
+  contactPhone    String?
+
+  // Embedding for semantic search
+  embedding       Unsupported("vector(1536)")?
+
+  // Metadata
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  scrapedAt       DateTime?
+
+  @@index([deadline])
+  @@index([source])
+  @@index([isActive])
+}
+
+model ChatConversation {
+  id        String   @id @default(cuid())
+  sessionId String   // Browser session ID
+  messages  ChatMessage[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ChatMessage {
+  id             String   @id @default(cuid())
+  conversationId String
+  conversation   ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           MessageRole
+  content        String   @db.Text
+  createdAt      DateTime @default(now())
+
+  @@index([conversationId])
+}
+
+model KnowledgeBase {
+  id        String   @id @default(cuid())
+  title     String
+  content   String   @db.Text
+  category  String   // "de_minimis", "co_financing", "application_tips", etc.
+  embedding Unsupported("vector(1536)")?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum Source {
+  DLSC
+  INNOVATIONSFONDEN
+  EUHORIZEN
+  EIC
+  EUROSTARS
+  ERHVERVSSTYRELSEN
+  OTHER
+}
+
+enum CallType {
+  GRANT
+  LOAN
+  EQUITY
+  VOUCHER
+  PRIZE
+  OTHER
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
